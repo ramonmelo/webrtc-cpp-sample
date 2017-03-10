@@ -1,12 +1,14 @@
 # WebRTC C++ sample
+
 Sample program for using WebRTC(DataChannel) on C++.
 
 # Requirement
 
-* Mac OSX
+* Tested on Ubuntu Linux (16.04)
 * WebRTC(require Debug build before compile this project)(https://webrtc.org/native-code/development/).
+* Modified version of [PicoJson library](https://github.com/kazuho/picojson/tree/25fc213cca61ea22b3c2e4db8def9927562ba5f7)
 
-# Compile
+# How to Build
 
 ```sh
 $ mkdir -p <path to work>/libs
