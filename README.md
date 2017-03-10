@@ -5,25 +5,58 @@ Sample program for using WebRTC(DataChannel) on C++.
 # Requirement
 
 * Tested on Ubuntu Linux (16.04)
-* WebRTC(require Debug build before compile this project)(https://webrtc.org/native-code/development/).
+* WebRTC (https://webrtc.org/native-code/development/). Checkout the master branch.
 * Modified version of [PicoJson library](https://github.com/kazuho/picojson/tree/25fc213cca61ea22b3c2e4db8def9927562ba5f7)
 
 # How to Build
 
-```sh
-$ mkdir -p <path to work>/libs
-$ cp <path to webrtc>/src/out/Release/lib* <path to work>/libs
-$ cd <path to work>/libs
-$ rm *test*
-$ find *.a -exec ar x {} \;
-$ ar q libwebrtc_all.a *.o
-$ cd <path to work>
-$ git clone --depth 1 https://github.com/llamerada-jp/webrtc-cpp-sample.git
-$ cd webrtc-cpp-sample
-$ git submodule init
-$ git submodule update
-$ cd <path to work>
-$ clang++ -std=c++11 -I <path to webrtc>/src/ -L <path to work>/libs -L <path to webrtc>/src/out/Debug/ -lwebrtc_all -lwebrtc -framework CoreFoundation -framework Foundation -framework CoreAudio -framework AudioToolbox -framework CoreGraphics -o sample <path to work>/webrtc-cpp-sample/main.cpp
+1. Clone this repository into your WebRTC build folder:
+```bash
+git clone git@github.com:ramonmelo/webrtc-cpp-sample.git
+```
+2. Create a new build using ```gn```:
+```bash
+# inside the src folder
+gn gen out/my_build
+
+# configure the build
+gn args out/my_build
+# the arguments editor will run, type the configurations below:
+```
+> symbol_level = 0 \
+is_debug = false \
+rtc_include_tests = false \
+target_os = "linux" \
+target_cpu = "x64" \
+is_clang = false \
+use_sysroot = false \
+is_component_build = false \
+treat_warnings_as_errors = false \
+enable_nacl = false
+
+3. Modify the root BUILD.gn to include our code:
+```bash
+# open your best editor
+vim BUILD.gn # webrtc/src/BUILD.gn
+
+# inside the default group insert
+group("default") {
+  deps = [
+    ...
+    "//webrtc-cpp-sample:webrtc_sample",
+    ...
+  ]
+}
+```
+4. Build all:
+```bash
+gn gen out/my_build
+ninja -C out/my_build
+```
+5. Wait until all build
+6. Execute the example:
+```bash
+./out/my_build/webrtc_sample
 ```
 
 # Run
