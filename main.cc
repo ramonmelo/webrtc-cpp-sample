@@ -6,15 +6,15 @@
 #include <string>
 #include <thread>
 
-// 環境に合わせてマクロ定義が必要
+#include <stdio.h>
+
 //#define WEBRTC_ANDROID 1
 //#define WEBRTC_IOS 1
-//#define WEBRTC_LINUX 1
-#define WEBRTC_MAC 1
+#define WEBRTC_LINUX 1
+// #define WEBRTC_MAC 1
 #define WEBRTC_POSIX 1
 //#define WEBRTC_WIN 1
 
-// WebRTC関連のヘッダ
 #include <webrtc/api/peerconnectioninterface.h>
 #include <webrtc/api/test/fakeconstraints.h>
 #include <webrtc/base/flags.h>
@@ -22,8 +22,7 @@
 #include <webrtc/base/ssladapter.h>
 #include <webrtc/base/thread.h>
 
-// picojsonはコピペ用データ構造を作るために使う
-#include "picojson/picojson.h"
+#include "picojson.h"
 
 class Connection {
  public:
@@ -59,23 +58,23 @@ class Connection {
    public:
     PCO(Connection& parent) : parent(parent) {
     }
-  
+
     void OnSignalingChange(webrtc::PeerConnectionInterface::SignalingState new_state) override {
       std::cout << std::this_thread::get_id() << ":"
                 << "PeerConnectionObserver::SignalingChange(" << new_state << ")" << std::endl;
     };
 
-    void OnAddStream(webrtc::MediaStreamInterface* stream) override {
+    void OnAddStream(rtc::scoped_refptr<webrtc::MediaStreamInterface> stream) override {
       std::cout << std::this_thread::get_id() << ":"
                 << "PeerConnectionObserver::AddStream" << std::endl;
     };
 
-    void OnRemoveStream(webrtc::MediaStreamInterface* stream) override {
+    void OnRemoveStream(rtc::scoped_refptr<webrtc::MediaStreamInterface> stream) override {
       std::cout << std::this_thread::get_id() << ":"
                 << "PeerConnectionObserver::RemoveStream" << std::endl;
     };
 
-    void OnDataChannel(webrtc::DataChannelInterface* data_channel) override {
+    void OnDataChannel(rtc::scoped_refptr<webrtc::DataChannelInterface> data_channel) override {
       std::cout << std::this_thread::get_id() << ":"
                 << "PeerConnectionObserver::DataChannel(" << data_channel
                 << ", " << parent.data_channel.get() << ")" << std::endl;
@@ -104,7 +103,7 @@ class Connection {
       parent.onIceCandidate(candidate);
     };
   };
-  
+
   class DCO : public webrtc::DataChannelObserver {
    private:
     Connection& parent;
@@ -118,7 +117,7 @@ class Connection {
       std::cout << std::this_thread::get_id() << ":"
                 << "DataChannelObserver::StateChange" << std::endl;
     };
-    
+
     // メッセージ受信
     void OnMessage(const webrtc::DataBuffer& buffer) override {
       std::cout << std::this_thread::get_id() << ":"
@@ -139,7 +138,7 @@ class Connection {
    public:
     CSDO(Connection& parent) : parent(parent) {
     }
-  
+
     void OnSuccess(webrtc::SessionDescriptionInterface* desc) override {
       std::cout << std::this_thread::get_id() << ":"
                 << "CreateSessionDescriptionObserver::OnSuccess" << std::endl;
@@ -167,7 +166,7 @@ class Connection {
    public:
     SSDO(Connection& parent) : parent(parent) {
     }
-    
+
     void OnSuccess() override {
       std::cout << std::this_thread::get_id() << ":"
                 << "SetSessionDescriptionObserver::OnSuccess" << std::endl;
@@ -193,11 +192,12 @@ class Connection {
   SSDO ssdo;
 
   Connection() :
-      pco(*this),
-      dco(*this),
-      csdo(*this),
-      ssdo(*this) {
+    pco(*this),
+    dco(*this),
+    csdo(*this),
+    ssdo(*this) {
   }
+
 };
 
 rtc::Thread* thread;
@@ -207,8 +207,7 @@ Connection connection;
 rtc::PhysicalSocketServer socket_server;
 
 void thread_entry() {
-  std::cout << std::this_thread::get_id() << ":"
-            << "RTC thread" << std::endl;
+  std::cout << std::this_thread::get_id() << ":" << "RTC thread" << std::endl;
   peer_connection_factory = webrtc::CreatePeerConnectionFactory();
   if (peer_connection_factory.get() == nullptr) {
     std::cout << "Error on CreatePeerConnectionFactory." << std::endl;
@@ -219,7 +218,7 @@ void thread_entry() {
   webrtc::PeerConnectionInterface::IceServer ice_server;
   ice_server.uri = "stun:stun.l.google.com:19302";
   configuration.servers.push_back(ice_server);
-  
+
   thread = rtc::Thread::Current();
   thread->set_socketserver(&socket_server);
   thread->Run();
@@ -234,7 +233,7 @@ void cmd_sdp1() {
 
   connection.data_channel = connection.peer_connection->CreateDataChannel("data_channel", &config);
   connection.data_channel->RegisterObserver(&connection.dco);
-    
+
   if (connection.peer_connection.get() == nullptr) {
     peer_connection_factory = nullptr;
     std::cout << "Error on CreatePeerConnection." << std::endl;
@@ -328,88 +327,86 @@ void cmd_quit() {
   connection.peer_connection->Close();
   connection.peer_connection = nullptr;
   connection.data_channel = nullptr;
-  peer_connection_factory = nullptr;
+  // peer_connection_factory = nullptr;
   // リソースを開放したらスレッドを止めてOK
   thread->Quit();
 }
 
-int main(int argc, char* argv[]) {
-  // 第三引数にtrueを指定すると、WebRTC関連の引数をargvから削除してくれるらしい
-  rtc::FlagList::SetFlagsFromCommandLine(&argc, argv, true);
-  rtc::FlagList::Print(nullptr, false);
+int main(int argc, char const *argv[])
+{
+    rtc::FlagList::SetFlagsFromCommandLine(&argc, argv, true);
+    rtc::FlagList::Print(nullptr, false);
 
-  std::cout << std::this_thread::get_id() << ":"
-            << "Main thread" << std::endl;
+    std::cout << std::this_thread::get_id() << ":" << "Main thread" << std::endl;
 
-  rtc::InitializeSSL();
-  std::thread th(thread_entry);
+    rtc::InitializeSSL();
+    std::thread th(thread_entry);
 
-  std::string line;
-  std::string command;
-  std::string parameter;
-  bool is_cmd_mode = true;
+    std::string line;
+    std::string command;
+    std::string parameter;
+    bool is_cmd_mode = true;
 
-  while (std::getline(std::cin, line)) {
-    if (is_cmd_mode) {
-      if (line == "") {
-        continue;
+    while (std::getline(std::cin, line)) {
+        if (is_cmd_mode) {
+            if (line == "") {
+                continue;
+            } else if (line == "sdp1") {
+                cmd_sdp1();
 
-      } else if (line == "sdp1") {
-        cmd_sdp1();
+            } else if (line == "sdp2") {
+                command = "sdp2";
+                is_cmd_mode = false;
 
-      } else if (line == "sdp2") {
-        command = "sdp2";
-        is_cmd_mode = false;
+            } else if (line == "sdp3") {
+                command = "sdp3";
+                is_cmd_mode = false;
 
-      } else if (line == "sdp3") {
-        command = "sdp3";
-        is_cmd_mode = false;
+            } else if (line == "ice1") {
+                cmd_ice1();
 
-      } else if (line == "ice1") {
-        cmd_ice1();
+            } else if (line == "ice2") {
+                command = "ice2";
+                is_cmd_mode = false;
 
-      } else if (line == "ice2") {
-        command = "ice2";
-        is_cmd_mode = false;
+            } else if (line == "send") {
+                command = "send";
+                is_cmd_mode = false;
 
-      } else if (line == "send") {
-        command = "send";
-        is_cmd_mode = false;
+            } else if (line == "quit") {
+                cmd_quit();
+                break;
 
-      } else if (line == "quit") {
-        cmd_quit();
-        break;
+            } else {
+                std::cout << "?" << line << std::endl;
+            }
 
-      } else {
-        std::cout << "?" << line << std::endl;
-      }
+        } else {
+            if (line == ";") {
+                if (command == "sdp2") {
+                    cmd_sdp2(parameter);
 
-    } else {
-      if (line == ";") {
-        if (command == "sdp2") {
-          cmd_sdp2(parameter);
+                } else if (command == "sdp3") {
+                    cmd_sdp3(parameter);
 
-        } else if (command == "sdp3") {
-          cmd_sdp3(parameter);
+                } else if (command == "ice2") {
+                    cmd_ice2(parameter);
 
-        } else if (command == "ice2") {
-          cmd_ice2(parameter);
+                } else if (command == "send") {
+                    cmd_send(parameter);
+                }
 
-        } else if (command == "send") {
-          cmd_send(parameter);
+            parameter = "";
+            is_cmd_mode = true;
+
+            } else {
+                parameter += line + "\n";
+            }
         }
-        
-        parameter = "";
-        is_cmd_mode = true;
-
-      } else {
-        parameter += line + "\n";
-      }
     }
-  }
 
-  th.join();
-  rtc::CleanupSSL();
+    th.join();
+    rtc::CleanupSSL();
 
-  return 0;
+    return 0;
 }

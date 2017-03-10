@@ -1,0 +1,12 @@
+executable("webrtc_sample") {
+    sources = [
+        "main.cc",
+    ]
+    deps = [
+        "//webrtc/base:rtc_base",
+        "//webrtc/base:rtc_base_approved",
+        "//webrtc/pc:libjingle_peerconnection",
+        "//webrtc/system_wrappers:field_trial_default",
+        "//webrtc/system_wrappers:metrics_default",
+    ]
+}
