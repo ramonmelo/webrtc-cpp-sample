@@ -23,16 +23,18 @@ gn gen out/my_build
 gn args out/my_build
 # the arguments editor will run, type the configurations below:
 ```
-> symbol_level = 0 \
-is_debug = false \
-rtc_include_tests = false \
-target_os = "linux" \
-target_cpu = "x64" \
-is_clang = false \
-use_sysroot = false \
-is_component_build = false \
-treat_warnings_as_errors = false \
+```
+symbol_level = 0
+is_debug = false
+rtc_include_tests = false
+target_os = "linux"
+target_cpu = "x64"
+is_clang = false
+use_sysroot = false
+is_component_build = false
+treat_warnings_as_errors = false 
 enable_nacl = false
+```
 
 3. Modify the root BUILD.gn to include our code:
 ```bash
